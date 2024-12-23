@@ -1,0 +1,110 @@
+import requests
+import pandas as pd
+from textblob import TextBlob
+from pytrends.request import TrendReq
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+# 1. Data Collection (Google Trends and News API)
+
+# Example of using Google Trends (pytrends) to get trending topics
+def get_google_trends():
+    pytrends = TrendReq(hl='en-US', tz=360)
+    pytrends.build_payload(kw_list=["cryptocurrency", "stock market", "real estate", "AI", "NFTs"])
+    trends = pytrends.interest_over_time()
+    return trends
+
+# Example of using a simple News API (or you could use Reddit or Twitter APIs for social sentiment)
+def get_news_sentiment():
+    url = "https://newsapi.org/v2/everything"
+    params = {
+        "q": "finance",
+        "apiKey": "YOUR_NEWS_API_KEY"
+    }
+    response = requests.get(url, params=params)
+    articles = response.json()['articles']
+    sentiment_scores = []
+    for article in articles:
+        sentiment = TextBlob(article['description']).sentiment.polarity
+        sentiment_scores.append(sentiment)
+    return sentiment_scores
+
+# 2. Predictive Model (Simple Logistic Regression to Predict Market Trend)
+
+# Mock data: historical trends for illustration
+data = {
+    'feature1': [0.7, 0.8, 0.6, 0.9, 0.5, 0.3],
+    'feature2': [0.4, 0.5, 0.7, 0.3, 0.6, 0.9],
+    'trend': [1, 1, 1, 0, 0, 0]  # 1 = trending up, 0 = trending down
+}
+
+df = pd.DataFrame(data)
+
+# Feature scaling and model training
+X = df[['feature1', 'feature2']]
+y = df['trend']
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# Predicting trends
+def predict_trend(features):
+    scaled_features = scaler.transform([features])
+    prediction = model.predict(scaled_features)
+    return "Trending Up" if prediction == 1 else "Trending Down"
+
+# 3. Combine data sources and predict
+def get_trending_market():
+    trends_data = get_google_trends()
+    sentiment_data = get_news_sentiment()
+    
+    # Combine sentiment and trend data (for illustration, this is basic)
+    features = [sum(sentiment_data)/len(sentiment_data), trends_data['cryptocurrency'].mean()]
+    
+    market_prediction = predict_trend(features)
+    return market_prediction
+
+if __name__ == "__main__":
+    print("Market Prediction:", get_trending_market())
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function App() {
+  const [marketTrend, setMarketTrend] = useState('');
+
+  useEffect(() => {
+    // Fetch the market trend prediction from the Flask API
+    axios.get('http://localhost:5000/get_trending_market')
+      .then(response => {
+        setMarketTrend(response.data.trend);
+      })
+      .catch(error => {
+        console.error('There was an error fetching the market trend!', error);
+      });
+  }, []);
+
+  return (
+    <div className="App">
+      <h1>Current Market Trends</h1>
+      <p>{marketTrend ? `The market is trending: ${marketTrend}` : 'Loading trend prediction...'}</p>
+    </div>
+  );
+}
+
+export default App;
+from flask import Flask, jsonify
+app = Flask(__name__)
+
+@app.route('/get_trending_market', methods=['GET'])
+def get_trending_market():
+    prediction = get_trending_market()  # From the previous code
+    return jsonify({"trend": prediction})
+
+if __name__ == "__main__":
+    app.run(debug=True)
